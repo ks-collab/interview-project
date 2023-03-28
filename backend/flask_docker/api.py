@@ -1,6 +1,6 @@
 from flask import Blueprint, g, jsonify, current_app, request
 from flask_docker.db import Database
-import openai 
+import openai
 
 api = Blueprint('api', __name__)
 
@@ -12,12 +12,24 @@ def get_db():
 
 @api.route('/conversations', methods=['GET'])
 def get_conversations():
-    return jsonify([])
+    response = get_db().fetch("SELECT * FROM conversations")
+    return jsonify(response)
 
 
 @api.route('/conversation', methods=['POST'])
 def create_conversation():
-    return jsonify({"id": 0, "name": "Hello World"})
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Who won the world series in 2020?"},
+            {"role": "assistant",
+                "content": "The Los Angeles Dodgers won the World Series in 2020."},
+            {"role": "user", "content": "Where was it played?"}
+        ]
+    )
+
+    return jsonify(response)
 
 
 @api.route('/conversation/<id>', methods=['DELETE'])

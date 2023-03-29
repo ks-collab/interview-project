@@ -4,6 +4,7 @@ import openai
 
 api = Blueprint('api', __name__)
 
+
 def get_db():
     if "db" not in g:
         g.db = Database("gpt_project")
@@ -18,28 +19,28 @@ def get_conversations():
 
 @api.route('/conversation', methods=['POST'])
 def create_conversation():
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": "Who won the world series in 2020?"},
-            {"role": "assistant",
-                "content": "The Los Angeles Dodgers won the World Series in 2020."},
-            {"role": "user", "content": "Where was it played?"}
-        ]
-    )
-
-    return jsonify(response)
+    # Get name from request body
+    name = request.json["name"]
+    # Return error if name is not provided
+    if name == "":
+        return {"error": "Name is required"}, 400
+    response = get_db().insert("conversations", {"name": name})
+    return jsonify({"id": response, "name": name})
 
 
 @api.route('/conversation/<id>', methods=['DELETE'])
-def delete_conversation(id):
-    return {"id": 0}
+def delete_conversation(id: int):
+    response = get_db().execute("DELETE FROM conversations WHERE id = %s", id)
+    # Return error if conversation is not found
+    return {"id": id} if (response and response > 0) else {"error": "Conversation not found"}, 404
 
 
 @api.route('/conversation/<id>/messages', methods=['GET'])
-def get_messages(id):
-    return jsonify([])
+def get_messages(id: int):
+    # Get messages from database for provided conversation id
+    response = get_db().fetch(
+        "SELECT * FROM messages WHERE conversation_id = %s ORDER BY id", id)
+    return jsonify(response)
 
 
 @api.route('/conversation/<conversation_id>/message', methods=['POST'])

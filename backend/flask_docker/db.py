@@ -24,9 +24,11 @@ root.setLevel(logging.DEBUG)
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 root.addHandler(handler)
+
 
 class Database:
     max_retries = 1  # maximum number of retries when a connection to the database cannot be established
@@ -68,7 +70,7 @@ class Database:
             Failed to connect to database after Database.max_retries
         """
         kwargs = {
-            "host": "mariadb", 
+            "host": "mariadb",
             "port": 3306,
             "user": "root",
             "password": "password",
@@ -119,7 +121,8 @@ class Database:
             yield cursor
         finally:
             if self.autocommit:
-                self.conn.commit()  # this may not actually be necessary since each individual query would've already committed
+                # this may not actually be necessary since each individual query would've already committed
+                self.conn.commit()
             cursor.close()
 
     def _log_query(self, sql: str, args: Iterable):
@@ -219,7 +222,8 @@ class Database:
             args = [obj[k] for k in keys] + [where[1]]
         elif where_list is not None:
             where_cols, where_args = zip(*where_list)
-            where_cols = " AND ".join([f"{where_col}=%s" for where_col in where_cols])
+            where_cols = " AND ".join(
+                [f"{where_col}=%s" for where_col in where_cols])
             sql = f"UPDATE {table} SET {updates} WHERE {where_cols}"
             args = [obj[k] for k in keys] + list(where_args)
         else:
@@ -236,7 +240,8 @@ class Database:
         update_keys = [k for k in keys if k != "created_at"]
         cols = ", ".join(map(lambda key: f"`{key}`", keys))
         vals = ", ".join(["%s" for _ in keys])
-        updates = ", ".join(map(lambda key: f"{key} = VALUES({key})", update_keys))
+        updates = ", ".join(
+            map(lambda key: f"{key} = VALUES({key})", update_keys))
         sql = f"INSERT INTO {table} ({cols}) VALUES ({vals}) ON DUPLICATE KEY UPDATE {updates}"
         args = [obj[k] for k in keys]
         for arg in args:
@@ -275,7 +280,7 @@ class Database:
             rows = list(cursor.fetchall())
             return rows
 
-    def execute(self, sql: str, args: Tuple = ()) -> None:
+    def execute(self, sql: str, args: Tuple = ()) -> int:
         """Executes a sql statement
 
         Parameters
@@ -284,10 +289,16 @@ class Database:
 
         args : Tuple, optional
             by default ()
+
+        Returns
+        -------
+        int
+            number of rows affected
         """
         self._log_query(sql, args)
         with self.cursor() as cursor:
-            cursor.execute(sql, tuple(args))
+            num_affected = cursor.execute(sql, tuple(args))
+            return num_affected
 
     def execute_many(self, lines: Sequence[str]) -> None:
         """Execute a sequence of sql queries, usually lines from a .sql file

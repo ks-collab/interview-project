@@ -1,2 +1,6 @@
 __pycache__
 .vscode
+config.py
+Lib/
+Scripts/
+pyvenv.cfg

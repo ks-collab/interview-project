@@ -13,17 +13,17 @@ def get_db():
 
 @api.route('/conversations', methods=['GET'])
 def get_conversations():
-    response = get_db().fetch("SELECT * FROM conversations")
+    response = get_db().fetch("SELECT * FROM conversations ORDER BY id")
     return jsonify(response)
 
 
 @api.route('/conversation', methods=['POST'])
 def create_conversation():
-    # Get name from request body
     name = request.json["name"]
-    # Return error if name is not provided
+
     if name == "":
         return {"error": "Name is required"}, 400
+
     response = get_db().insert("conversations", {"name": name})
     return jsonify({"id": response, "name": name})
 
@@ -31,13 +31,11 @@ def create_conversation():
 @api.route('/conversation/<id>', methods=['DELETE'])
 def delete_conversation(id: int):
     response = get_db().execute("DELETE FROM conversations WHERE id = %s", id)
-    # Return error if conversation is not found
     return {"id": id} if (response and response > 0) else {"error": "Conversation not found"}, 404
 
 
 @api.route('/conversation/<id>/messages', methods=['GET'])
 def get_messages(id: int):
-    # Get messages from database for provided conversation id
     response = get_db().fetch(
         "SELECT * FROM messages WHERE conversation_id = %s ORDER BY id", id)
     return jsonify(response)
@@ -47,9 +45,6 @@ def get_messages(id: int):
 def create_message(conversation_id):
     newQuery = request.json["query"]
     insertId = -1
-    aiResponse = ""
-    aiStopReason = ""
-    formattedMessages = []
 
     previousMessages = get_db().fetch(
         "SELECT * FROM messages WHERE conversation_id = %s ORDER BY id", conversation_id)
@@ -69,7 +64,8 @@ def create_message(conversation_id):
         "role": "user", "content": newQuery
     })
 
-    # Send openai completion request using request body
+    # Send openai chat completion request using previous messages
+    # with new query appended to previous message list
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=formattedMessages,
@@ -90,12 +86,12 @@ def create_message(conversation_id):
                 aiResponse = "I'm sorry, I'm still thinking about your question."
                 # TODO: do something if api still working on response
     else:
-        # Insert new message into database
         insertId = get_db().insert("messages", {
             "conversation_id": conversation_id, "query": newQuery, "response": aiResponse})
 
     # Return error if message is not created
-    if insertId == -1:
-        return {"error": "Message not created", "reason": aiResponse}, 400
+    if insertId is None or insertId == -1:
+        errorMessage = "Message not created" if insertId is None else "OpenAI stopped for reason: " + aiStopReason
+        return {"error": errorMessage, "reason": aiResponse}, 400
     else:
         return jsonify({"id": conversation_id, "query": newQuery, "response": aiResponse})

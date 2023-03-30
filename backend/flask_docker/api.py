@@ -43,6 +43,9 @@ def get_messages(id: int):
 
 @api.route('/conversation/<conversation_id>/message', methods=['POST'])
 def create_message(conversation_id):
+    if (openai.api_key is None or openai.api_key == ""):
+        openai.api_key = current_app.config["OPENAI_API_KEY"]
+
     newQuery = request.json["query"]
     insertId = -1
 
